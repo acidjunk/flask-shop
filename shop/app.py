@@ -150,7 +150,7 @@ class Product(db.Model):
     detail_image = db.Column(db.String(255), index=True)
     content = db.Column(db.Text)
     price = db.Column(db.Float)
-    is_active = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     categories = db.relationship('Category', secondary='categories_to_products',
                                  backref=db.backref('products', lazy='dynamic'))
@@ -208,27 +208,58 @@ def before_first_request():
 
 
 class UserAdminView(ModelView):
-    column_hide_backrefs = False
-    column_list = ('email', 'active', 'roles')
+    # Don't display the password on the list of Users
+    column_list = ('email', 'username', 'confirmed_at', 'roles', 'active')
+    # Don't include the standard password field when creating or editing a User (but see below)
+    form_excluded_columns = ('password',)
+
+    # Automatically display human-readable names for the current and available Roles when creating or editing a User
+    column_auto_select_related = True
+
+    # Prevent administration of Users unless the currently logged-in user has the "admin" role
+    def is_accessible(self):
+        if 'admin' in current_user.roles:
+            return True
+
+    # On the form for creating or editing a User, don't display a field corresponding to the model's password field.
+    # There are two reasons for this. First, we want to encrypt the password before storing in the database. Second,
+    # we want to use a password field (with the input masked) rather than a regular text field.
+    def scaffold_form(self):
+        # Start with the standard form as provided by Flask-Admin. We've already told Flask-Admin to exclude the
+        # password field from this form.
+        form_class = super(UserAdminView, self).scaffold_form()
+
+        # Add a password field, naming it "password2" and labeling it "New Password".
+        form_class.password2 = PasswordField('New Password')
+        return form_class
+
+    # This callback executes when the user saves changes to a newly-created or edited User -- before the changes are
+    # committed to the database.
+    def on_model_change(self, form, model, is_created):
+        # If the password field isn't blank...
+        if len(model.password2):
+            # ... then encrypt the new password prior to storing it in the database. If the password field is blank,
+            # the existing password in the database will be retained.
+            model.password = utils.hash_password(model.password2)
 
 
 class RolesAdminView(ModelView):
 
     # Prevent administration of Roles unless the currently logged-in user has the "admin" role
     def is_accessible(self):
-        #todo only admins and operators allowed
-        return current_user.is_authenticated
+        if 'admin' in current_user.roles:
+            return True
 
 
 class ProductAdminView(ModelView):
-    column_list = ['id', 'name', 'is_active', 'created_on']
+    column_list = ['name', 'categories', 'price', 'created_on', 'is_active']
     column_default_sort = ('name', True)
-    column_filters = ('is_active', )
+    column_filters = ('is_active', 'categories')
     column_searchable_list = ('name', )
 
     def is_accessible(self):
-        #todo only admin, moderators and operators allowed
-        return current_user.is_authenticated
+        if 'admin' in current_user.roles:
+            return True
 
 
 class CategoryAdminView(ModelView):
@@ -237,8 +268,8 @@ class CategoryAdminView(ModelView):
     column_searchable_list = ('name', )
 
     def is_accessible(self):
-        #todo only admin, moderators and operators allowed
-        return current_user.is_authenticated
+        if 'admin' in current_user.roles:
+            return True
 
 
 class CustomerAdminView(ModelView):
@@ -247,16 +278,16 @@ class CustomerAdminView(ModelView):
     column_searchable_list = ('name', )
 
     def is_accessible(self):
-        #todo only admin, moderators and operators allowed
-        return current_user.is_authenticated
+        if 'admin' in current_user.roles:
+            return True
 
 
 class ShoppingCartAdminView(ModelView):
     column_list = ['id']
 
     def is_accessible(self):
-        #todo only admin, moderators and operators allowed
-        return current_user.is_authenticated
+        if 'admin' in current_user.roles:
+            return True
 
 
 admin.add_view(ProductAdminView(Product, db.session))
@@ -266,12 +297,15 @@ admin.add_view(ShoppingCartAdminView(ShoppingCart, db.session))
 admin.add_view(UserAdminView(User, db.session))
 admin.add_view(RolesAdminView(Role, db.session))
 
-
+# **********
+# API Stuff
+# **********
 @api.route('/api/products')
 class ProductListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String, 'list_image': fields.String,
-                   'detail_image': fields.String, 'content': fields.String, 'price': fields.Float})
+                   'detail_image': fields.String, 'content': fields.String, 'price': fields.Float,
+                   'categories': fields.List(fields.String)})
     def get(self):
         args = request.args
         if args:
@@ -279,6 +313,15 @@ class ProductListResource(Resource):
         else:
             products = Product.query.all()
         return products
+
+
+@api.route('/api/categories')
+class CategoryListResource(Resource):
+
+    @marshal_with({'id': fields.String, 'name': fields.String})
+    def get(self):
+        categories = Category.query.all()
+        return categories
 
 
 if __name__ == '__main__':
