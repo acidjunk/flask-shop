@@ -7,6 +7,7 @@ from flask_admin import helpers as admin_helpers
 from flask_admin.actions import action
 from flask_admin.contrib.sqla import ModelView
 from flask_admin import Admin
+from flask_cors import CORS
 from flask_login import UserMixin, current_user
 from flask_mail import Mail
 from flask_migrate import Migrate, MigrateCommand
@@ -22,6 +23,7 @@ VERSION = '0.1.0'
 DATABASE_URI = os.getenv('DATABASE_URI', 'postgres://flask-shop:flask-shop@localhost/flask-shop')
 
 app = Flask(__name__, static_url_path='/static')
+CORS(app)
 app.secret_key = os.getenv('SECRET_KEY', 'TODO:MOVE_TO_BLUEPRINT')
 
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URI
