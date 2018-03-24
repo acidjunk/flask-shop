@@ -340,14 +340,20 @@ admin.add_view(ShoppingCartAdminView(ShoppingCart, db.session))
 admin.add_view(UserAdminView(User, db.session))
 admin.add_view(RolesAdminView(Role, db.session))
 
+
 # **********
 # API Stuff
 # **********
+class StaticImageUrl(fields.Raw):
+    def format(self, value):
+        return url_for('static', filename=value, _external=True)
+
+
 @api.route('/api/products')
 class ProductListResource(Resource):
 
-    @marshal_with({'id': fields.String, 'name': fields.String, 'list_image': fields.String,
-                   'detail_image': fields.String, 'content': fields.String, 'price': fields.Float,
+    @marshal_with({'id': fields.String, 'name': fields.String, 'list_image': StaticImageUrl,
+                   'detail_image': StaticImageUrl, 'content': fields.String, 'price': fields.Float,
                    'categories': fields.List(fields.String)})
     def get(self):
         args = request.args
@@ -355,9 +361,6 @@ class ProductListResource(Resource):
             products = Product.query.filter(Product.name.contains(args["search_phrase"])).all()
         else:
             products = Product.query.all()
-        for product in products:
-            product.list_image = url_for('static', filename=product.list_image, _external=True)
-            product.detail_image = url_for('static', filename=product.detail_image, _external=True)
         return products
 
 
