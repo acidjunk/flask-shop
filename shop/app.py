@@ -144,6 +144,13 @@ class CategoryToProduct(db.Model):
     product_id = db.Column('product_id', db.UUID(as_uuid=True), db.ForeignKey('products.id'))
 
 
+class CategoryToArticle(db.Model):
+    __tablename__ = 'categories_to_articles'
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    category_id = db.Column('category_id', db.UUID(as_uuid=True), db.ForeignKey('categories.id'))
+    articles_id = db.Column('article_id', db.UUID(as_uuid=True), db.ForeignKey('articles.id'))
+
+
 class Product(db.Model):
     __tablename__ = 'products'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
@@ -156,6 +163,21 @@ class Product(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     categories = db.relationship('Category', secondary='categories_to_products',
                                  backref=db.backref('products', lazy='dynamic'))
+
+    def __repr__(self):
+        return self.name
+
+
+class Article(db.Model):
+    __tablename__ = 'articles'
+    id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    name = db.Column(db.String(255), unique=True, index=True)
+    content = db.Column(db.Text)
+    is_active = db.Column(db.Boolean, default=True)
+    is_main = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    categories = db.relationship('Category', secondary='categories_to_articles',
+                                 backref=db.backref('articles', lazy='dynamic'))
 
     def __repr__(self):
         return self.name
@@ -253,8 +275,8 @@ class RolesAdminView(ModelView):
             return True
 
 
-class ProductAdminView(ModelView):
-    column_list = ['name', 'categories', 'price', 'created_on', 'is_active']
+class ArticleAdminView(ModelView):
+    column_list = ['name', 'is_main', 'created_on', 'is_active']
     column_default_sort = ('name', True)
     column_filters = ('is_active', 'categories')
     column_searchable_list = ('name', )
@@ -262,6 +284,24 @@ class ProductAdminView(ModelView):
     def is_accessible(self):
         if 'admin' in current_user.roles:
             return True
+
+
+class ProductAdminView(ModelView):
+    column_list = ['image', 'name', 'categories', 'price', 'created_on', 'is_active']
+    column_default_sort = ('name', True)
+    column_filters = ('is_active', 'categories')
+    column_searchable_list = ('name', )
+
+    def _list_thumbnail(view, context, model, name):
+        return Markup('<img width="150" src="%s">' % url_for('static', filename=f'{model.list_image}'))
+
+    def is_accessible(self):
+        if 'admin' in current_user.roles:
+            return True
+
+    column_formatters = {
+        'image': _list_thumbnail
+    }
 
 
 class CategoryAdminView(ModelView):
@@ -293,6 +333,7 @@ class ShoppingCartAdminView(ModelView):
 
 
 admin.add_view(ProductAdminView(Product, db.session))
+admin.add_view(ArticleAdminView(Article, db.session))
 admin.add_view(CategoryAdminView(Category, db.session))
 admin.add_view(CustomerAdminView(Customer, db.session))
 admin.add_view(ShoppingCartAdminView(ShoppingCart, db.session))
@@ -314,6 +355,9 @@ class ProductListResource(Resource):
             products = Product.query.filter(Product.name.contains(args["search_phrase"])).all()
         else:
             products = Product.query.all()
+        for product in products:
+            product.list_image = url_for('static', filename=product.list_image, _external=True)
+            product.detail_image = url_for('static', filename=product.detail_image, _external=True)
         return products
 
 
@@ -324,6 +368,20 @@ class CategoryListResource(Resource):
     def get(self):
         categories = Category.query.all()
         return categories
+
+
+@api.route('/api/articles')
+class ArticleListResource(Resource):
+
+    @marshal_with({'id': fields.String, 'name': fields.String, 'content': fields.String, 'is_main': fields.Boolean,
+                   'categories': fields.List(fields.String)})
+    def get(self):
+        args = request.args
+        if args:
+            articles = Article.query.filter(Article.name.contains(args["search_phrase"])).all()
+        else:
+            articles = Article.query.all()
+        return articles
 
 
 if __name__ == '__main__':
