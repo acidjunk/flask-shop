@@ -94,9 +94,9 @@ class Role(db.Model, RoleMixin):
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    email = db.Column(db.String(255), unique=True)
+    email = db.Column(db.String(255), nullable=False, unique=True)
     username = db.Column(db.String(255), unique=True)
-    password = db.Column(db.String(255))
+    password = db.Column(db.String(255), nullable=False)
     active = db.Column(db.Boolean())
     confirmed_at = db.Column(db.DateTime())
     roles = db.relationship('Role', secondary='roles_to_users',
@@ -115,7 +115,7 @@ class Customer(db.Model):
     __tablename__ = 'customers'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     user_id = db.Column('user_id', db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
-    name = db.Column(db.String(255), index=True)
+    name = db.Column(db.String(255), nullable=False, index=True)
     company_name = db.Column(db.String(255), index=True)
     vat_number = db.Column(db.String(30), index=True)
     street = db.Column(db.String(30), nullable=False, index=True)
@@ -131,7 +131,7 @@ class Customer(db.Model):
 class Category(db.Model):
     __tablename__ = 'categories'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    name = db.Column(db.String(255), unique=True, index=True)
+    name = db.Column(db.String(255), nullable=False, unique=True, index=True)
 
     def __repr__(self):
         return self.name
@@ -154,11 +154,15 @@ class CategoryToArticle(db.Model):
 class Product(db.Model):
     __tablename__ = 'products'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    name = db.Column(db.String(255), unique=True, index=True)
-    list_image = db.Column(db.String(255), index=True)
-    detail_image = db.Column(db.String(255), index=True)
-    content = db.Column(db.Text)
-    price = db.Column(db.Float)
+    name = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    intro = db.Column(db.Text, nullable=False)
+    list_image = db.Column(db.String(255), nullable=False, index=True)
+    detail_image = db.Column(db.String(255), nullable=False, index=True)
+    usp1 = db.Column(db.String(255), nullable=False)
+    usp2 = db.Column(db.String(255), nullable=False)
+    usp3 = db.Column(db.String(255), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    price = db.Column(db.Float, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     categories = db.relationship('Category', secondary='categories_to_products',
@@ -287,7 +291,7 @@ class ArticleAdminView(ModelView):
 
 
 class ProductAdminView(ModelView):
-    column_list = ['image', 'name', 'categories', 'price', 'created_on', 'is_active']
+    column_list = ['image', 'name', 'intro', 'categories', 'price', 'created_on', 'is_active']
     column_default_sort = ('name', True)
     column_filters = ('is_active', 'categories')
     column_searchable_list = ('name', )
@@ -354,6 +358,7 @@ class ProductListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String, 'list_image': StaticImageUrl,
                    'detail_image': StaticImageUrl, 'content': fields.String, 'price': fields.Float,
+                   'intro': fields.String, 'usp1': fields.String, 'usp2': fields.String, 'usp3': fields.String,
                    'categories': fields.List(fields.String)})
     def get(self):
         args = request.args
