@@ -2,9 +2,8 @@ import datetime
 import uuid
 
 import os
-from flask import Flask, flash, request, url_for
+from flask import Flask, abort, request, url_for
 from flask_admin import helpers as admin_helpers
-from flask_admin.actions import action
 from flask_admin.contrib.sqla import ModelView
 from flask_admin import Admin
 from flask_cors import CORS
@@ -13,7 +12,7 @@ from flask_mail import Mail
 from flask_migrate import Migrate, MigrateCommand
 from flask_restplus import Api, Resource, fields, marshal_with
 from flask_script import Manager
-from flask_security import RoleMixin, SQLAlchemyUserDatastore, Security, utils
+from flask_security import RoleMixin, SQLAlchemyUserDatastore, Security, utils, http_auth_required
 from flask_sqlalchemy import SQLAlchemy
 from markupsafe import Markup
 from sqlalchemy.dialects.postgresql.base import UUID
@@ -115,7 +114,8 @@ class Customer(db.Model):
     __tablename__ = 'customers'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     user_id = db.Column('user_id', db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
-    name = db.Column(db.String(255), nullable=False, index=True)
+    first_name = db.Column(db.String(255), nullable=False, index=True)
+    last_name = db.Column(db.String(255), nullable=False, index=True)
     company_name = db.Column(db.String(255), index=True)
     vat_number = db.Column(db.String(30), index=True)
     street = db.Column(db.String(30), nullable=False, index=True)
@@ -319,9 +319,9 @@ class CategoryAdminView(ModelView):
 
 
 class CustomerAdminView(ModelView):
-    column_list = ['id', 'name']
-    column_default_sort = ('name', True)
-    column_searchable_list = ('name', )
+    column_list = ['id', 'first_name']
+    column_default_sort = ('last_name', True)
+    column_searchable_list = ('first_name', 'last_name')
 
     def is_accessible(self):
         if 'admin' in current_user.roles:
@@ -390,6 +390,20 @@ class ArticleListResource(Resource):
         else:
             articles = Article.query.all()
         return articles
+
+
+@api.route('/api/customer/<string:email>')
+class CustomerResource(Resource):
+
+    @http_auth_required
+    @marshal_with({'id': fields.String, 'first_name': fields.String, 'last_name': fields.String,
+                   'company_name': fields.String, 'vat_number': fields.String, 'street': fields.String,
+                   'zip_code': fields.String, 'city': fields.String, 'country': fields.String})
+    def get(self, email):
+        if email == current_user.email:
+            customer = Customer.query.filter_by(user_id=current_user.id).first()
+            return customer if customer else abort(400, 'No linked customer found.')
+        abort(403, 'Not allowed to fetch this customer with your user.')
 
 
 if __name__ == '__main__':
