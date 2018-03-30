@@ -116,6 +116,7 @@ class Customer(db.Model):
     user_id = db.Column('user_id', db.UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     first_name = db.Column(db.String(255), nullable=False, index=True)
     last_name = db.Column(db.String(255), nullable=False, index=True)
+    phone = db.Column(db.String(15), index=True)
     company_name = db.Column(db.String(255), index=True)
     vat_number = db.Column(db.String(30), index=True)
     street = db.Column(db.String(30), nullable=False, index=True)
@@ -319,7 +320,7 @@ class CategoryAdminView(ModelView):
 
 
 class CustomerAdminView(ModelView):
-    column_list = ['id', 'first_name']
+    column_list = ['id', 'first_name', 'last_name', 'phone', 'company_name', 'city', 'country']
     column_default_sort = ('last_name', True)
     column_searchable_list = ('first_name', 'last_name')
 
@@ -396,7 +397,7 @@ class ArticleListResource(Resource):
 class CustomerResource(Resource):
 
     @http_auth_required
-    @marshal_with({'id': fields.String, 'first_name': fields.String, 'last_name': fields.String,
+    @marshal_with({'id': fields.String, 'first_name': fields.String, 'last_name': fields.String, 'phone': fields.String,
                    'company_name': fields.String, 'vat_number': fields.String, 'street': fields.String,
                    'zip_code': fields.String, 'city': fields.String, 'country': fields.String})
     def get(self, email):
