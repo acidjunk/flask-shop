@@ -305,7 +305,7 @@ class ProductAdminView(ModelView):
     column_searchable_list = ('name', )
 
     def _list_thumbnail(view, context, model, name):
-        return Markup('<img width="150" src="%s">' % url_for('static', filename=f'{model.list_image}'))
+        return Markup('<img width="150" src="%s">' % url_for('static', filename=f'images/{model.list_image}'))
 
     def is_accessible(self):
         if 'admin' in current_user.roles:
@@ -358,7 +358,7 @@ admin.add_view(RolesAdminView(Role, db.session))
 # **********
 class StaticImageUrl(fields.Raw):
     def format(self, value):
-        return url_for('static', filename=value, _external=True)
+        return url_for('static', filename=fr'images/{value}', _external=True)
 
 
 @api.route('/api/products')
