@@ -15,6 +15,7 @@ from flask_script import Manager
 from flask_security import RoleMixin, SQLAlchemyUserDatastore, Security, utils, http_auth_required
 from flask_sqlalchemy import SQLAlchemy
 from markupsafe import Markup
+from slugify import slugify
 from sqlalchemy.dialects.postgresql.base import UUID
 from wtforms import PasswordField
 
@@ -156,6 +157,7 @@ class Product(db.Model):
     __tablename__ = 'products'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     name = db.Column(db.String(255), nullable=False, unique=True, index=True)
+    seo_name = db.Column(db.String(255), nullable=False, unique=True, index=True)
     intro = db.Column(db.Text, nullable=False)
     list_image = db.Column(db.String(255), nullable=False, index=True)
     detail_image = db.Column(db.String(255), nullable=False, index=True)
@@ -171,6 +173,11 @@ class Product(db.Model):
 
     def __repr__(self):
         return self.name
+
+    @property
+    def url(self):
+        return slugify(self.seo_name)
+
 
 
 class Article(db.Model):
@@ -292,7 +299,7 @@ class ArticleAdminView(ModelView):
 
 
 class ProductAdminView(ModelView):
-    column_list = ['image', 'name', 'intro', 'categories', 'price', 'created_on', 'is_active']
+    column_list = ['image', 'name', 'seo_name', 'intro', 'categories', 'price', 'created_on', 'is_active']
     column_default_sort = ('name', True)
     column_filters = ('is_active', 'categories')
     column_searchable_list = ('name', )
@@ -357,10 +364,10 @@ class StaticImageUrl(fields.Raw):
 @api.route('/api/products')
 class ProductListResource(Resource):
 
-    @marshal_with({'id': fields.String, 'name': fields.String, 'list_image': StaticImageUrl,
-                   'detail_image': StaticImageUrl, 'content': fields.String, 'price': fields.Float,
-                   'intro': fields.String, 'usp1': fields.String, 'usp2': fields.String, 'usp3': fields.String,
-                   'categories': fields.List(fields.String)})
+    @marshal_with({'id': fields.String, 'url': fields.String, 'name': fields.String, 'seo_name': fields.String,
+                   'list_image': StaticImageUrl, 'detail_image': StaticImageUrl, 'content': fields.String,
+                   'price': fields.Float, 'intro': fields.String, 'usp1': fields.String, 'usp2': fields.String,
+                   'usp3': fields.String, 'categories': fields.List(fields.String)})
     def get(self):
         args = request.args
         if args:
