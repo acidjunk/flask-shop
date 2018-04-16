@@ -10,7 +10,12 @@ https://github.com/acidjunk/clojushop-frontend
 Todo: add instruction to make a production build of the frontend and add it to the docker
 
 # Build docker container suitable for hosting
+
+You can build a docker by using the provided docker file.
+TODO: bundle the Frontend, so it's not ready for production yet!
     
     docker build -t flask-shop .
     
     docker run -d --name flask-shop -p 80:80 flask-shop
+
+# Deploy via Amazon

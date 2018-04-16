@@ -179,7 +179,6 @@ class Product(db.Model):
         return slugify(self.seo_name)
 
 
-
 class Article(db.Model):
     __tablename__ = 'articles'
     id = db.Column(db.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
@@ -209,6 +208,7 @@ class ShoppingCart(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     is_active = db.Column(db.Boolean, default=False)
     is_complete = db.Column(db.Boolean, default=False)
+
 
 # Setup Flask-Security
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
@@ -412,6 +412,13 @@ class CustomerResource(Resource):
             customer = Customer.query.filter_by(user_id=current_user.id).first()
             return customer if customer else abort(400, 'No linked customer found.')
         abort(403, 'Not allowed to fetch this customer with your user.')
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def catch_all(path):
+    return 'You want path: %s' % path
+
 
 
 if __name__ == '__main__':

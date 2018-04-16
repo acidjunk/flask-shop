@@ -1,0 +1,13 @@
+{
+    "production": {
+        "app_function": "app.app",
+        "aws_region": "eu-central-1",
+        "profile_name": "default",
+        "project_name": "flask-shop",
+        "runtime": "python3.6",
+        "s3_bucket": "acidjunk-flask-shop",
+        "environment_variables": {
+            "DATABASE_URI": "postgres://formatics:M>xM+XKgYFTk1uW@formatics-postgres-eu.cogvmrr9jpcc.eu-central-1.rds.amazonaws.com/shop"
+        }
+    }
+}
