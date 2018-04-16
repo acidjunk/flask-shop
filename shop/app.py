@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 import os
-from flask import Flask, abort, request, url_for
+from flask import Flask, abort, request, url_for, render_template
 from flask_admin import helpers as admin_helpers
 from flask_admin.contrib.sqla import ModelView
 from flask_admin import Admin
@@ -416,9 +416,8 @@ class CustomerResource(Resource):
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def catch_all(path):
-    return 'You want path: %s' % path
-
+def index(path):
+    return render_template('index.html')
 
 
 if __name__ == '__main__':
