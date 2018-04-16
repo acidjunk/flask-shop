@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 import os
-from flask import Flask, abort, request, url_for, render_template
+from flask import Flask, Blueprint, abort, url_for, send_from_directory, render_template, request
 from flask_admin import helpers as admin_helpers
 from flask_admin.contrib.sqla import ModelView
 from flask_admin import Admin
@@ -10,7 +10,7 @@ from flask_cors import CORS
 from flask_login import UserMixin, current_user
 from flask_mail import Mail
 from flask_migrate import Migrate, MigrateCommand
-from flask_restplus import Api, Resource, fields, marshal_with
+from flask_restplus import Api, Namespace, Resource, fields, marshal_with
 from flask_script import Manager
 from flask_security import RoleMixin, SQLAlchemyUserDatastore, Security, utils, http_auth_required
 from flask_sqlalchemy import SQLAlchemy
@@ -22,7 +22,7 @@ from wtforms import PasswordField
 VERSION = '0.1.0'
 DATABASE_URI = os.getenv('DATABASE_URI', 'postgres://flask-shop:flask-shop@localhost/flask-shop')
 
-app = Flask(__name__, static_url_path='')
+app = Flask(__name__)
 CORS(app)
 app.secret_key = os.getenv('SECRET_KEY', 'TODO:MOVE_TO_BLUEPRINT')
 
@@ -55,12 +55,16 @@ app.config['SECURITY_USER_IDENTITY_ATTRIBUTES'] = ['email', 'username']
 db = SQLAlchemy(app)
 db.UUID = UUID
 
-api = Api(app, doc='/api/ui')
 manager = Manager(app)
 migrate = Migrate(app, db)
 manager.add_command('db', MigrateCommand)
 admin = Admin(app, name='Shop admin', template_mode='bootstrap3')
 mail = Mail(app)
+
+api_v1 = Blueprint('api', __name__)
+api = Api(api_v1, version='1.0', title='Shop API', description='Shop API')  # no url_prefix yet
+shop_ns = api.namespace('api', description='Shop operations')
+app.register_blueprint(api_v1)
 
 
 @app.context_processor
@@ -353,15 +357,16 @@ admin.add_view(UserAdminView(User, db.session))
 admin.add_view(RolesAdminView(Role, db.session))
 
 
-# **********
-# API Stuff
-# **********
+#
+# REST API's
+#
+
 class StaticImageUrl(fields.Raw):
     def format(self, value):
         return url_for('static', filename=fr'images/{value}', _external=True)
 
 
-@api.route('/api/products')
+@shop_ns.route('/products')
 class ProductListResource(Resource):
 
     @marshal_with({'id': fields.String, 'url': fields.String, 'name': fields.String, 'seo_name': fields.String,
@@ -377,7 +382,7 @@ class ProductListResource(Resource):
         return products
 
 
-@api.route('/api/categories')
+@shop_ns.route('/categories')
 class CategoryListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String})
@@ -386,7 +391,7 @@ class CategoryListResource(Resource):
         return categories
 
 
-@api.route('/api/articles')
+@shop_ns.route('/articles')
 class ArticleListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String, 'content': fields.String, 'is_main': fields.Boolean,
@@ -400,7 +405,7 @@ class ArticleListResource(Resource):
         return articles
 
 
-@api.route('/api/customer/<string:email>')
+@shop_ns.route('/customer/<string:email>')
 class CustomerResource(Resource):
 
     @http_auth_required
@@ -414,10 +419,23 @@ class CustomerResource(Resource):
         abort(403, 'Not allowed to fetch this customer with your user.')
 
 
+@app.route('/js/<path:path>')
+def send_js(path):
+    return send_from_directory('static/js', path)
+
+
+@app.route('/css/<path:path>')
+def send_css(path):
+    return send_from_directory('static/css', path)
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
-def index(path):
+def catch_all(path):
     return render_template('index.html')
+
+
+
 
 
 if __name__ == '__main__':
