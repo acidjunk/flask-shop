@@ -22,7 +22,7 @@ from wtforms import PasswordField
 VERSION = '0.1.0'
 DATABASE_URI = os.getenv('DATABASE_URI', 'postgres://flask-shop:flask-shop@localhost/flask-shop')
 
-app = Flask(__name__, static_url_path='/static')
+app = Flask(__name__, static_url_path='')
 CORS(app)
 app.secret_key = os.getenv('SECRET_KEY', 'TODO:MOVE_TO_BLUEPRINT')
 
