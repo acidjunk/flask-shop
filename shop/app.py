@@ -10,7 +10,7 @@ from flask_cors import CORS
 from flask_login import UserMixin, current_user
 from flask_mail import Mail
 from flask_migrate import Migrate, MigrateCommand
-from flask_restplus import Api, Namespace, Resource, fields, marshal_with
+from flask_restplus import Resource, fields, marshal_with, Api as BaseApi
 from flask_script import Manager
 from flask_security import RoleMixin, SQLAlchemyUserDatastore, Security, utils, http_auth_required
 from flask_sqlalchemy import SQLAlchemy
@@ -18,6 +18,22 @@ from markupsafe import Markup
 from slugify import slugify
 from sqlalchemy.dialects.postgresql.base import UUID
 from wtforms import PasswordField
+
+
+class Api(BaseApi):
+
+    def _register_doc(self, app_or_blueprint):
+        # HINT: This is just a copy of the original implementation with the last line commented out.
+        if self._add_specs and self._doc:
+            # Register documentation before root if enabled
+            app_or_blueprint.add_url_rule(self._doc, 'doc', self.render_doc)
+        # FIX for root_url:
+        #app_or_blueprint.add_url_rule(self._doc, 'root', self.render_root)
+
+    @property
+    def base_path(self):
+        return ''
+
 
 VERSION = '0.1.0'
 DATABASE_URI = os.getenv('DATABASE_URI', 'postgres://flask-shop:flask-shop@localhost/flask-shop')
@@ -60,11 +76,7 @@ migrate = Migrate(app, db)
 manager.add_command('db', MigrateCommand)
 admin = Admin(app, name='Shop admin', template_mode='bootstrap3')
 mail = Mail(app)
-
-api_v1 = Blueprint('api', __name__)
-api = Api(api_v1, version='1.0', title='Shop API', description='Shop API')  # no url_prefix yet
-shop_ns = api.namespace('api', description='Shop operations')
-app.register_blueprint(api_v1)
+api = Api(app, doc='/api/ui')
 
 
 @app.context_processor
@@ -366,7 +378,7 @@ class StaticImageUrl(fields.Raw):
         return url_for('static', filename=fr'images/{value}', _external=True)
 
 
-@shop_ns.route('/products')
+@api.route('/api/products')
 class ProductListResource(Resource):
 
     @marshal_with({'id': fields.String, 'url': fields.String, 'name': fields.String, 'seo_name': fields.String,
@@ -382,7 +394,7 @@ class ProductListResource(Resource):
         return products
 
 
-@shop_ns.route('/categories')
+@api.route('/api/categories')
 class CategoryListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String})
@@ -391,7 +403,7 @@ class CategoryListResource(Resource):
         return categories
 
 
-@shop_ns.route('/articles')
+@api.route('/api/articles')
 class ArticleListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String, 'content': fields.String, 'is_main': fields.Boolean,
@@ -405,7 +417,7 @@ class ArticleListResource(Resource):
         return articles
 
 
-@shop_ns.route('/customer/<string:email>')
+@api.route('/api/customer/<string:email>')
 class CustomerResource(Resource):
 
     @http_auth_required
@@ -433,9 +445,6 @@ def send_css(path):
 @app.route('/<path:path>')
 def catch_all(path):
     return render_template('index.html')
-
-
-
 
 
 if __name__ == '__main__':
