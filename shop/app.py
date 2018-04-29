@@ -11,6 +11,7 @@ from flask_login import UserMixin, current_user
 from flask_mail import Mail
 from flask_migrate import Migrate, MigrateCommand
 from flask_restplus import Resource, fields, marshal_with, Api as BaseApi
+import flask_s3
 from flask_script import Manager
 from flask_security import RoleMixin, SQLAlchemyUserDatastore, Security, utils, http_auth_required
 from flask_sqlalchemy import SQLAlchemy
@@ -37,8 +38,14 @@ class Api(BaseApi):
 
 VERSION = '0.1.0'
 DATABASE_URI = os.getenv('DATABASE_URI', 'postgres://flask-shop:flask-shop@localhost/flask-shop')
+FLASKS3_BUCKET_NAME = os.getenv('FLASKS3_BUCKET_NAME', None)
+FLASKS3_CDN_DOMAIN = os.getenv('FLASKS3_CDN_DOMAIN', None)
+
 
 app = Flask(__name__)
+
+s3 = flask_s3.FlaskS3(app)
+
 CORS(app)
 app.secret_key = os.getenv('SECRET_KEY', 'TODO:MOVE_TO_BLUEPRINT')
 
@@ -47,6 +54,10 @@ app.config['SQLALCHEMY_COMMIT_ON_TEARDOWN'] = True
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECURITY_PASSWORD_HASH'] = 'pbkdf2_sha512'
 app.config['SECURITY_PASSWORD_SALT'] = 'SALTSALTSALT'
+app.config['FLASKS3_BUCKET_NAME'] = os.getenv('FLASKS3_BUCKET_NAME')
+app.config['FLASKS3_CDN_DOMAIN'] = os.getenv('FLASKS3_CDN_DOMAIN')
+app.config['AWS_ACCESS_KEY_ID'] = os.getenv('AWS_ACCESS_KEY_ID')
+app.config['AWS_SECRET_ACCESS_KEY'] = os.getenv('AWS_SECRET_ACCESS_KEY')
 
 # Replace the next six lines with your own SMTP server settings
 app.config['SECURITY_EMAIL_SENDER'] = os.getenv('SECURITY_EMAIL_SENDER', 'no-reply@example.com')
@@ -448,4 +459,11 @@ def catch_all(path):
 
 
 if __name__ == '__main__':
+    def upload_assets():
+        flask_s3.create_all(app,
+                            user=os.getenv('AWS_ACCESS_KEY_ID'),
+                            password=os.getenv('AWS_SECRET_ACCESS_KEY'),
+                            bucket_name=os.getenv('FLASKS3_BUCKET_NAME'))
+    if os.getenv('DEPLOY_ASSETS', None):
+        upload_assets()
     manager.run()
