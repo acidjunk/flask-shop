@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 import os
-from flask import Flask, Blueprint, abort, url_for, send_from_directory, render_template, request
+from flask import Flask, abort, url_for, request
 from flask_admin import helpers as admin_helpers
 from flask_admin.contrib.sqla import ModelView
 from flask_admin import Admin
@@ -36,11 +36,8 @@ class Api(BaseApi):
         return ''
 
 
-VERSION = '0.1.0'
+VERSION = '0.1.2'
 DATABASE_URI = os.getenv('DATABASE_URI', 'postgres://flask-shop:flask-shop@localhost/flask-shop')
-FLASKS3_BUCKET_NAME = os.getenv('FLASKS3_BUCKET_NAME', None)
-FLASKS3_CDN_DOMAIN = os.getenv('FLASKS3_CDN_DOMAIN', None)
-
 
 app = Flask(__name__)
 
@@ -56,6 +53,8 @@ app.config['SECURITY_PASSWORD_HASH'] = 'pbkdf2_sha512'
 app.config['SECURITY_PASSWORD_SALT'] = 'SALTSALTSALT'
 app.config['FLASKS3_BUCKET_NAME'] = os.getenv('FLASKS3_BUCKET_NAME')
 app.config['FLASKS3_CDN_DOMAIN'] = os.getenv('FLASKS3_CDN_DOMAIN')
+app.config['FLASKS3_ACTIVE'] = True
+# AWS credentials are not used yet as pictures are manually uploaded
 app.config['AWS_ACCESS_KEY_ID'] = os.getenv('AWS_ACCESS_KEY_ID')
 app.config['AWS_SECRET_ACCESS_KEY'] = os.getenv('AWS_SECRET_ACCESS_KEY')
 
@@ -87,7 +86,7 @@ migrate = Migrate(app, db)
 manager.add_command('db', MigrateCommand)
 admin = Admin(app, name='Shop admin', template_mode='bootstrap3')
 mail = Mail(app)
-api = Api(app, doc='/api/ui')
+api = Api(app, doc='/ui')
 
 
 @app.context_processor
@@ -129,6 +128,7 @@ class User(db.Model, UserMixin):
     roles = db.relationship('Role', secondary='roles_to_users',
                             backref=db.backref('users', lazy='dynamic'))
     customers = db.relationship('Customer', backref='user', lazy=True)
+
     # Human-readable values for the User when editing user related stuff.
     def __str__(self):
         return f'{self.username} : {self.email}'
@@ -386,10 +386,11 @@ admin.add_view(RolesAdminView(Role, db.session))
 
 class StaticImageUrl(fields.Raw):
     def format(self, value):
-        return url_for('static', filename=fr'images/{value}', _external=True)
+        # return url_for('static', filename=fr'images/{value}', _external=True)
+        return f"https://www.opnsense-hardware.nl/static/images/{value}"
 
 
-@api.route('/api/products')
+@api.route('/products')
 class ProductListResource(Resource):
 
     @marshal_with({'id': fields.String, 'url': fields.String, 'name': fields.String, 'seo_name': fields.String,
@@ -405,7 +406,7 @@ class ProductListResource(Resource):
         return products
 
 
-@api.route('/api/categories')
+@api.route('/categories')
 class CategoryListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String})
@@ -414,7 +415,7 @@ class CategoryListResource(Resource):
         return categories
 
 
-@api.route('/api/articles')
+@api.route('/articles')
 class ArticleListResource(Resource):
 
     @marshal_with({'id': fields.String, 'name': fields.String, 'content': fields.String, 'is_main': fields.Boolean,
@@ -428,7 +429,7 @@ class ArticleListResource(Resource):
         return articles
 
 
-@api.route('/api/customer/<string:email>')
+@api.route('/customer/<string:email>')
 class CustomerResource(Resource):
 
     @http_auth_required
@@ -442,28 +443,5 @@ class CustomerResource(Resource):
         abort(403, 'Not allowed to fetch this customer with your user.')
 
 
-@app.route('/js/<path:path>')
-def send_js(path):
-    return send_from_directory('static/js', path)
-
-
-@app.route('/css/<path:path>')
-def send_css(path):
-    return send_from_directory('static/css', path)
-
-
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def catch_all(path):
-    return render_template('index.html')
-
-
 if __name__ == '__main__':
-    def upload_assets():
-        flask_s3.create_all(app,
-                            user=os.getenv('AWS_ACCESS_KEY_ID'),
-                            password=os.getenv('AWS_SECRET_ACCESS_KEY'),
-                            bucket_name=os.getenv('FLASKS3_BUCKET_NAME'))
-    if os.getenv('DEPLOY_ASSETS', None):
-        upload_assets()
     manager.run()
